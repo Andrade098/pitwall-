@@ -20,6 +20,8 @@ uvicorn app.main:app --reload
 
 
 resumo
+
+```bash
 cd backend
 python -m venv .venv
 source .venv/Scripts/activate  # Windows Git Bash
