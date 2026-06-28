@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PitWall - Live Timing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(225, 6, 0, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 50%, rgba(255, 215, 0, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 { 
+            color: #e10600; 
+            font-size: 2.5rem; 
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(225, 6, 0, 0.3);
+        }
+        
+        .controls, .lap-info, table, .events, .qualifying-info {
+            backdrop-filter: blur(10px);
+            background: rgba(22, 33, 62, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .controls {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .controls select, .controls button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .controls select {
+            background: #0f3460;
+            color: #fff;
+            flex: 1;
+            min-width: 200px;
+        }
+        .controls select option {
+            background: #1a1a2e;
+        }
+        .controls button {
+            background: #e10600;
+            color: #fff;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .controls button:hover { background: #ff1a00; transform: scale(1.02); }
+        .controls button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .controls button:disabled:hover {
+            transform: none;
+        }
+        .controls button.btn-green { background: #4caf50; }
+        .controls button.btn-green:hover { background: #66bb6a; }
+        .controls button.btn-skip { background: #ff9800; color: #000; }
+        .controls button.btn-skip:hover { background: #ffa726; }
+        
+        .lap-info {
+            font-size: 1.5rem;
+            color: #ffd700;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .lap-info .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        .status-waiting { background: #ff9800; color: #000; }
+        .status-qualifying { background: #2196f3; color: #fff; }
+        .status-racing { background: #4caf50; color: #fff; }
+        .status-finished { background: #ffd700; color: #000; }
+        .safety-car-active { 
+            background: #f44336; 
+            color: #fff; 
+            padding: 4px 12px; 
+            border-radius: 20px;
+            animation: blink 1s ease-in-out infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .qualifying-title {
+            text-align: center;
+            padding: 15px;
+            font-size: 1.3rem;
+            color: #ffd700;
+            background: rgba(15, 52, 96, 0.5);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ffd700;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th {
+            background: rgba(15, 52, 96, 0.9);
+            color: #ffd700;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(42, 42, 74, 0.5);
+        }
+        tr:hover { 
+            background: rgba(26, 42, 74, 0.5);
+            transition: background 0.3s;
+        }
+        .position { 
+            font-weight: bold; 
+            color: #ffd700;
+            font-size: 1.1rem;
+        }
+        .driver-code { 
+            font-weight: bold; 
+            color: #fff;
+            font-size: 1rem;
+        }
+        .driver-name { 
+            color: #aaa; 
+            font-size: 0.85rem;
+        }
+        .gap { 
+            color: #4fc3f7;
+            font-family: monospace;
+            font-size: 0.95rem;
+        }
+        .tyre {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+        .tyre-SOFT { background: #e10600; color: #fff; }
+        .tyre-MEDIUM { background: #ffd700; color: #000; }
+        .tyre-HARD { background: #fff; color: #000; }
+        .tyre-INTERMEDIATE { background: #4fc3f7; color: #000; }
+        .tyre-WET { background: #1a237e; color: #fff; }
+        
+        .status {
+            font-size: 0.75rem;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+        }
+        .status-RACING { background: #4caf50; color: #fff; }
+        .status-PIT { background: #ff9800; color: #000; }
+        .status-OUT { background: #f44336; color: #fff; }
+        .status-DNF { background: #f44336; color: #fff; }
+        .status-SAFETY_CAR { background: #ffeb3b; color: #000; }
+        .status-STARTING { background: #2196f3; color: #fff; }
+        .status-FINISHED { background: #ffd700; color: #000; }
+        
+        .connection-status {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-left: 10px;
+        }
+        .connected { background: #4caf50; color: #fff; }
+        .disconnected { background: #f44336; color: #fff; }
+        
+        .team-badge {
+            font-size: 0.6rem;
+            background: rgba(26, 26, 46, 0.8);
+            padding: 1px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-left: 8px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+        }
+        
+        .events {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .events::-webkit-scrollbar {
+            width: 6px;
+        }
+        .events::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+        }
+        .events::-webkit-scrollbar-thumb {
+            background: rgba(255,215,0,0.3);
+            border-radius: 3px;
+        }
+        .events h3 { 
+            color: #ffd700; 
+            margin-bottom: 10px;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+        }
+        .event-item {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(42, 42, 74, 0.3);
+            font-size: 0.9rem;
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .event-item .time { 
+            color: #888; 
+            margin-right: 10px;
+            font-family: monospace;
+        }
+        .event-item .type { 
+            color: #4fc3f7; 
+            font-weight: bold; 
+            margin-right: 10px;
+        }
+        
+        .podium {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(15, 52, 96, 0.6);
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,215,0,0.1);
+        }
+        .podium-item {
+            text-align: center;
+            font-size: 1.2rem;
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
+            min-width: 120px;
+        }
+        .podium-item .medal { font-size: 3rem; }
+        .podium-item .name { 
+            font-weight: bold; 
+            color: #ffd700;
+            font-size: 1.1rem;
+        }
+        .podium-item .team-name {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .dnf-text { 
+            color: #f44336; 
+            font-weight: bold;
+            font-size: 0.7rem;
+            margin-left: 5px;
+            background: rgba(244,67,54,0.15);
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .fastest-lap-text {
+            color: #ffd700;
+            font-size: 0.7rem;
+            margin-left: 3px;
+        }
+        .qualy-time {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #4fc3f7;
+        }
+        .qualy-session {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.05);
+        }
+        .qualifying-grid {
+            margin-bottom: 20px;
+        }
+        .qualifying-grid table {
+            margin-top: 10px;
+        }
+        .qualifying-grid th {
+            font-size: 0.75rem;
+        }
+        .qualifying-grid .best-time {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .q1-color { color: #4fc3f7; }
+        .q2-color { color: #ff9800; }
+        .q3-color { color: #ffd700; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏎️ PitWall Live Timing</h1>
+        <div>
+            <span id="connectionStatus" class="connection-status disconnected">Desconectado</span>
+        </div>
+        
+        <div class="controls">
+            <select id="trackSelect">
+                <option value="">Selecione uma pista...</option>
+                <option value="bahrain">Bahrain (57 voltas)</option>
+                <option value="jeddah">Jeddah (50 voltas)</option>
+                <option value="melbourne">Melbourne (58 voltas)</option>
+                <option value="suzuka">Suzuka (53 voltas)</option>
+                <option value="shanghai">Shanghai (56 voltas)</option>
+                <option value="miami">Miami (57 voltas)</option>
+                <option value="imola">Imola (63 voltas)</option>
+                <option value="monaco">Monaco (78 voltas)</option>
+                <option value="montreal">Montreal (70 voltas)</option>
+                <option value="barcelona">Barcelona (66 voltas)</option>
+                <option value="silverstone">Silverstone (52 voltas)</option>
+                <option value="spa">Spa (44 voltas)</option>
+                <option value="hungaroring">Hungaroring (70 voltas)</option>
+                <option value="zandvoort">Zandvoort (72 voltas)</option>
+                <option value="monza">Monza (53 voltas)</option>
+                <option value="singapore">Singapore (61 voltas)</option>
+                <option value="cota">COTA (56 voltas)</option>
+                <option value="mexico">Mexico (71 voltas)</option>
+                <option value="sao_paulo">São Paulo (71 voltas)</option>
+                <option value="las_vegas">Las Vegas (50 voltas)</option>
+                <option value="qatar">Qatar (57 voltas)</option>
+                <option value="abu_dhabi">Abu Dhabi (58 voltas)</option>
+            </select>
+            <button id="btnQualify" onclick="sendCommand('qualify')" disabled>🏁 Qualificar</button>
+            <button id="btnStart" onclick="sendCommand('start')" disabled class="btn-green">▶ Iniciar Corrida</button>
+            <button id="btnSkip" onclick="sendCommand('skip')" disabled class="btn-skip">⏭️ Pular Simulação</button>
+        </div>
+        
+        <div class="lap-info">
+            <span>🏁 LAP <span id="lapNumber">0</span> / <span id="totalLaps">0</span></span>
+            <span>⏱️ <span id="timestamp">-</span></span>
+            <span id="statusBadge" class="status-badge status-waiting">Aguardando</span>
+            <span id="safetyCarBadge" style="display:none;" class="safety-car-active">🚨 SAFETY CAR</span>
+        </div>
+        
+        <div id="podiumContainer"></div>
+        
+        <div id="qualifyingContainer" style="display:none;">
+            <div class="qualifying-title">🏁 Classificação finalizada! Ordem de largada:</div>
+            <div id="qualifyingGrid" class="qualifying-grid"></div>
+        </div>
+        
+        <table id="raceTable">
+            <thead>
+                <tr id="tableHeader">
+                    <th style="width:8%;">POS</th>
+                    <th style="width:25%;">PILOTO</th>
+                    <th style="width:10%;">GAP</th>
+                    <th style="width:12%;">PNEU</th>
+                    <th style="width:8%;">VOLTAS</th>
+                    <th style="width:13%;">STATUS</th>
+                    <th style="width:12%;">ÚLTIMA VOLTA</th>
+                </tr>
+            </thead>
+            <tbody id="timingBody">
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px; color: #888;">
+                        Selecione uma pista e clique em "Qualificar"
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="events" id="eventsContainer">
+            <h3>📋 Eventos da Corrida</h3>
+            <div id="eventsList">
+                <div style="color: #888; text-align: center; padding: 20px;">
+                    Aguardando eventos...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const WS_URL = 'ws://127.0.0.1:8000/ws/live-timing';
+        let ws = null;
+        let selectedTrack = '';
+
+        const teamColors = {
+            'MER': '#00D2BE', 'FER': '#DC0000', 'RBR': '#1E41FF',
+            'MCL': '#FF8700', 'AST': '#006F62', 'ALP': '#0090FF',
+            'WIL': '#005AFF', 'RB': '#6692FF', 'HAA': '#B6BABD',
+            'SAU': '#52E900', 'CAD': '#2E5A88', 'AUD': '#770000'
+        };
+
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket(WS_URL);
+                
+                ws.onopen = function() {
+                    console.log('✅ Conectado ao WebSocket');
+                    document.getElementById('connectionStatus').textContent = 'Conectado';
+                    document.getElementById('connectionStatus').className = 'connection-status connected';
+                    document.getElementById('btnQualify').disabled = false;
+                };
+
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    updateUI(data);
+                };
+
+                ws.onclose = function() {
+                    console.log('❌ Desconectado do WebSocket');
+                    document.getElementById('connectionStatus').textContent = 'Desconectado';
+                    document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                    document.getElementById('btnQualify').disabled = true;
+                    document.getElementById('btnStart').disabled = true;
+                    document.getElementById('btnSkip').disabled = true;
+                    setTimeout(connectWebSocket, 3000);
+                };
+
+                ws.onerror = function(error) {
+                    console.error('❌ Erro no WebSocket:', error);
+                };
+            } catch (error) {
+                console.error('❌ Erro ao conectar:', error);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendCommand(command) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('WebSocket não conectado!');
+                return;
+            }
+            
+            if (command === 'qualify') {
+                const track = document.getElementById('trackSelect').value;
+                if (!track) {
+                    alert('Selecione uma pista primeiro!');
+                    return;
+                }
+                selectedTrack = track;
+                ws.send(JSON.stringify({ command: 'qualify', track: track }));
+                document.getElementById('btnQualify').disabled = true;
+                document.getElementById('btnStart').disabled = false;
+                document.getElementById('btnSkip').disabled = true;
+                document.getElementById('qualifyingContainer').style.display = 'none';
+            } else if (command === 'start') {
+                ws.send(JSON.stringify({ command: 'start' }));
+                document.getElementById('btnStart').disabled = true;
+                document.getElementById('btnSkip').disabled = false;
+                document.getElementById('qualifyingContainer').style.display = 'none';
+            } else if (command === 'skip') {
+                if (confirm('⏭️ Tem certeza que deseja pular a simulação e finalizar a corrida?')) {
+                    ws.send(JSON.stringify({ command: 'skip' }));
+                    document.getElementById('btnSkip').disabled = true;
+                }
+            }
+        }
+
+        function renderQualifyingGrid(qualifyingData) {
+            if (!qualifyingData || qualifyingData.length === 0) return;
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>POS</th>
+                            <th>PILOTO</th>
+                            <th>EQUIPE</th>
+                            <th class="q1-color">Q1</th>
+                            <th class="q2-color">Q2</th>
+                            <th class="q3-color">Q3</th>
+                            <th>MELHOR VOLTA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            qualifyingData.forEach(d => {
+                const teamColor = teamColors[d.team_short] || '#666';
+                const isBest = d.position === 1;
+                html += `
+                    <tr>
+                        <td class="position">${d.position}</td>
+                        <td>
+                            <span class="driver-code">${d.driver_code}</span>
+                            <span class="driver-name">${d.driver_name}</span>
+                            <span class="team-badge" style="color: ${teamColor}; border-color: ${teamColor};">${d.team_short}</span>
+                        </td>
+                        <td style="color: ${teamColor};">${d.team}</td>
+                        <td class="qualy-time">${d.q1 || '-'}</td>
+                        <td class="qualy-time">${d.q2 || '-'}</td>
+                        <td class="qualy-time">${d.q3 || '-'}</td>
+                        <td class="qualy-time ${isBest ? 'best-time' : ''}">${d.best_time || '-'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('qualifyingGrid').innerHTML = html;
+            document.getElementById('qualifyingContainer').style.display = 'block';
+        }
+
+        function updateUI(data) {
+            document.getElementById('lapNumber').textContent = data.lap;
+            document.getElementById('totalLaps').textContent = data.total_laps || 0;
+            document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleTimeString();
+            
+            const statusBadge = document.getElementById('statusBadge');
+            statusBadge.textContent = data.race_status.toUpperCase();
+            statusBadge.className = `status-badge status-${data.race_status}`;
+            
+            const scBadge = document.getElementById('safetyCarBadge');
+            if (data.safety_car) {
+                scBadge.style.display = 'inline';
+            } else {
+                scBadge.style.display = 'none';
+            }
+            
+            if (data.race_status === 'racing') {
+                document.getElementById('btnSkip').disabled = false;
+            } else {
+                document.getElementById('btnSkip').disabled = true;
+            }
+            
+            // Mostrar grid de classificação
+            if (data.race_status === 'qualifying' && data.qualifying_data) {
+                renderQualifyingGrid(data.qualifying_data);
+            }
+            
+            // Pódio
+            const podiumContainer = document.getElementById('podiumContainer');
+            if (data.race_status === 'finished' && data.winner) {
+                const winners = data.drivers.slice(0, 3);
+                let podiumHtml = '<div class="podium">';
+                const medals = ['🥇', '🥈', '🥉'];
+                const medalColors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+                winners.forEach((d, i) => {
+                    const teamColor = teamColors[d.team] || '#666';
+                    podiumHtml += `
+                        <div class="podium-item" style="border: 2px solid ${medalColors[i]};">
+                            <div class="medal">${medals[i]}</div>
+                            <div class="name">${d.driver}</div>
+                            <div style="font-size:0.9rem;color:#aaa;">${d.driver_name}</div>
+                            <div class="team-name" style="color: ${teamColor};">${d.team}</div>
+                        </div>
+                    `;
+                });
+                podiumHtml += '</div>';
+                podiumContainer.innerHTML = podiumHtml;
+            } else {
+                podiumContainer.innerHTML = '';
+            }
+
+            const tbody = document.getElementById('timingBody');
+            tbody.innerHTML = '';
+
+            if (data.drivers && data.drivers.length > 0) {
+                data.drivers.forEach(driver => {
+                    const tr = document.createElement('tr');
+                    
+                    const posTd = document.createElement('td');
+                    posTd.className = 'position';
+                    posTd.textContent = driver.position;
+                    tr.appendChild(posTd);
+
+                    const driverTd = document.createElement('td');
+                    const teamColor = teamColors[driver.team] || '#666';
+                    const isDNF = driver.status === 'OUT';
+                    driverTd.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span class="driver-code">${driver.driver}</span>
+                            <span class="driver-name">${driver.driver_name}</span>
+                            <span class="team-badge" style="color: ${teamColor}; border-color: ${teamColor};">
+                                ${driver.team || ''}
+                            </span>
+                            ${isDNF ? '<span class="dnf-text">DNF</span>' : ''}
+                            ${driver.fastest_lap ? '<span class="fastest-lap-text">🏆 FL</span>' : ''}
+                        </div>
+                    `;
+                    tr.appendChild(driverTd);
+
+                    const gapTd = document.createElement('td');
+                    gapTd.className = 'gap';
+                    gapTd.textContent = driver.gap || '-';
+                    tr.appendChild(gapTd);
+
+                    const tyreTd = document.createElement('td');
+                    const tyreSpan = document.createElement('span');
+                    tyreSpan.className = `tyre tyre-${driver.tyre}`;
+                    tyreSpan.textContent = `${driver.tyre} (${driver.tyre_age})`;
+                    tyreTd.appendChild(tyreSpan);
+                    tr.appendChild(tyreTd);
+
+                    const lapsTd = document.createElement('td');
+                    lapsTd.textContent = driver.laps_completed;
+                    tr.appendChild(lapsTd);
+
+                    const statusTd = document.createElement('td');
+                    const statusSpan = document.createElement('span');
+                    const statusDisplay = driver.status === 'OUT' ? 'DNF' : driver.status;
+                    statusSpan.className = `status status-${driver.status}`;
+                    statusSpan.textContent = statusDisplay;
+                    statusTd.appendChild(statusSpan);
+                    tr.appendChild(statusTd);
+
+                    const lastLapTd = document.createElement('td');
+                    lastLapTd.textContent = driver.last_lap_time || '-';
+                    tr.appendChild(lastLapTd);
+
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #888;">
+                            Aguardando dados...
+                        </td>
+                    </tr>
+                `;
+            }
+
+            if (data.events && data.events.length > 0) {
+                const eventsList = document.getElementById('eventsList');
+                data.events.forEach(event => {
+                    const div = document.createElement('div');
+                    div.className = 'event-item';
+                    div.innerHTML = `
+                        <span class="time">LAP ${event.lap}</span>
+                        <span class="type">[${event.type}]</span>
+                        ${event.description}
+                    `;
+                    eventsList.prepend(div);
+                });
+
+                while (eventsList.children.length > 50) {
+                    eventsList.removeChild(eventsList.lastChild);
+                }
+            }
+        }
+
+        connectWebSocket();
+
+        document.getElementById('trackSelect').addEventListener('change', function() {
+            if (this.value && ws && ws.readyState === WebSocket.OPEN) {
+                document.getElementById('btnQualify').disabled = false;
+                document.getElementById('qualifyingContainer').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
