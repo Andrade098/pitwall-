@@ -22,4 +22,9 @@ cd ~/OneDrive/Pictures/f1-projeto/pitwall  # ou onde você clonou
 # Iniciar o Live Server para servir o HTML
 npx live-server
 
+# Em outro terminal, na raiz do projeto
+npx live-server
+# ou
+python -m http.server 8080
+
 http://127.0.0.1:8080/test_ws.html
